@@ -7,7 +7,6 @@ on:
 concurrency:
   group: ${{ github.repository }}
   cancel-in-progress: true
-
 env:
   # time zone
   TZ: Asia/Shanghai
@@ -27,8 +26,7 @@ env:
 
 jobs:
   process:
-    #runs-on: ubuntu-latest
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -65,7 +63,7 @@ jobs:
           fi
 
       - name: Collect
-        run: python -u subscribe/collect.py --all --both --overwrite --skip
+        run: python -u subscribe/collect.py --all --overwrite --skip
 
       - name: Timestamp
         run: date
