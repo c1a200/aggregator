@@ -1,8 +1,8 @@
 name: Process
 on:
   schedule:
-    - cron: "30 06 * * *"
-    - cron: "30 14 * * *"
+  - cron: "05 03 * * *"
+  - cron: "05 11 * * *"
   workflow_dispatch:
 
 env:
