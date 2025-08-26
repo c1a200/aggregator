@@ -1,15 +1,24 @@
-name: Delete
+name: Delete Workflow Runs
+
 on:
   schedule:
-    - cron: "0 0 * * SUN"
+    - cron: "0 0 * * SUN"      # 保留：每周日自动运行
+  
+  workflow_dispatch:           # 新增：允许手动触发
+    inputs:
+      days:
+        description: '手动运行时要保留日志的天数 (默认: 7)'
+        required: false
+        default: '7'
 
 jobs:
   del_runs:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete
+      - name: Delete Workflow Runs
         uses: GitRML/delete-workflow-runs@main
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: 30
+          # 如果是手动触发，使用输入的值；如果是定时触发，则使用默认值 7
+          retain_days: ${{ github.event.inputs.days || 7 }}
