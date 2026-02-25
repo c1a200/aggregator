@@ -521,6 +521,20 @@ def verify(item: dict, mihomo: bool = True) -> bool:
 
             elif item["type"] == "vless":
                 authentication = "uuid"
+
+                # see: https://github.com/MetaCubeX/mihomo/blob/Alpha/transport/vless/encryption/factory.go#L12
+                encryption = utils.trim(item.get("encryption", ""))
+                if encryption not in ["", "none"]:
+                    parts = encryption.split(".")
+
+                    # Must be: mlkem768x25519plus.<mode>.<...>.<...> (len >= 4)
+                    if (
+                        len(parts) < 4
+                        or parts[0] != "mlkem768x25519plus"
+                        or parts[1] not in ("native", "xorpub", "random")
+                    ):
+                        return False
+
                 network = utils.trim(item.get("network", "tcp"))
 
                 # mihomo: https://wiki.metacubex.one/config/proxies/vless/#network
@@ -554,9 +568,13 @@ def verify(item: dict, mihomo: bool = True) -> bool:
                         return False
                 if "reality-opts" in item:
                     reality_opts = item.get("reality-opts", {})
-                    if not reality_opts or type(reality_opts) != dict:
-                        return False
-                    if "public-key" not in reality_opts or type(reality_opts["public-key"]) != str:
+                    if (
+                        not reality_opts
+                        or type(reality_opts) != dict
+                        or "public-key" not in reality_opts
+                        or "short-id" not in reality_opts
+                        or type(reality_opts["public-key"]) != str
+                    ):
                         return False
 
                     content = utils.trim(reality_opts["public-key"])
@@ -565,18 +583,17 @@ def verify(item: dict, mihomo: bool = True) -> bool:
                     if len(public_key) != 32:
                         return False
 
-                    if "short-id" in reality_opts:
-                        short_id = reality_opts["short-id"]
-                        if type(short_id) != str:
-                            if utils.is_number(short_id):
-                                short_id = str(short_id)
-                            else:
-                                return False
-
-                        if len(short_id) != 8 or not is_hex(short_id) or re.match(r"\d+e\d+", short_id, flags=re.I):
+                    short_id = reality_opts["short-id"]
+                    if type(short_id) != str:
+                        if utils.is_number(short_id):
+                            short_id = str(short_id)
+                        else:
                             return False
 
-                        reality_opts["short-id"] = QuotedStr(short_id)
+                    if len(short_id) != 8 or not is_hex(short_id) or re.match(r"\d+e\d+", short_id, flags=re.I):
+                        return False
+
+                    reality_opts["short-id"] = QuotedStr(short_id)
             elif item["type"] == "tuic":
                 # mihomo: https://wiki.metacubex.one/config/proxies/tuic
                 token = wrap(item.get("token", ""))
