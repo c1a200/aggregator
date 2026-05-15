@@ -67,6 +67,9 @@ jobs:
               exit 1
           fi
 
+      - name: Update Customize Sources
+        run: python -u subscribe/update_customize.py --skip-validate || echo "Update customize failed, continuing with existing data"
+
       - name: Collect
         run: python -u subscribe/collect.py --all --skip
 
