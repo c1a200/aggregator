@@ -69,7 +69,7 @@ jobs:
         run: python -u subscribe/update_customize.py --skip-validate || echo "Update customize failed, continuing with existing data"
 
       - name: Refresh
-        run: python -u subscribe/collect.py --all --refresh --skip
+        run: python -u subscribe/collect.py --all --refresh --overwrite --skip
 
       - name: Timestamp
         run: date

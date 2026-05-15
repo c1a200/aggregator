@@ -71,7 +71,7 @@ jobs:
         run: python -u subscribe/update_customize.py --skip-validate || echo "Update customize failed, continuing with existing data"
 
       - name: Collect
-        run: python -u subscribe/collect.py --all --skip
+        run: python -u subscribe/collect.py --all --overwrite --skip
 
       - name: Timestamp
         run: date
