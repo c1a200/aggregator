@@ -28,7 +28,7 @@ env:
   WORKFLOW_MODE: ${{ vars.WORKFLOW_MODE }}
 
   # include spwcial protocols, such vless hysteria2 and hysteria
-  ENABLE_SPECIAL_PROTOCOLS: ${{ vars.ENABLE_SPECIAL_PROTOCOLS }}
+  ENABLE_SPECIAL_PROTOCOLS: ${{ vars.ENABLE_SPECIAL_PROTOCOLS || 'true' }}
 
 jobs:
   process:
@@ -51,7 +51,7 @@ jobs:
         run: pip3 install -r requirements.txt
 
       - name: Process
-        run: python -u subscribe/process.py --overwrite
+        run: python -u subscribe/process.py
 
       - name: Timestamp
         run: date

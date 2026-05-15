@@ -24,7 +24,7 @@ env:
   CUSTOMIZE_LINK: ${{ secrets.CUSTOMIZE_LINK }}
 
   # include special protocols, such as vless hysteria2 and hysteria
-  ENABLE_SPECIAL_PROTOCOLS: ${{ vars.ENABLE_SPECIAL_PROTOCOLS }}
+  ENABLE_SPECIAL_PROTOCOLS: ${{ vars.ENABLE_SPECIAL_PROTOCOLS || 'true' }}
 
 jobs:
   process:
@@ -65,7 +65,7 @@ jobs:
           fi
 
       - name: Refresh
-        run: python -u subscribe/collect.py --all --refresh --overwrite --skip
+        run: python -u subscribe/collect.py --all --refresh --skip
 
       - name: Timestamp
         run: date
