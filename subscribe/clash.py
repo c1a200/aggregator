@@ -740,7 +740,6 @@ def check(proxy: dict, api_url: str, timeout: int, test_url: str, delay: int, st
     interval = random.randint(30, 200) / 1000
     targets = [
         test_url,
-        "https://www.youtube.com/s/player/23010b46/player_ias.vflset/en_US/remote.js",
     ]
     if strict:
         targets.append(random.choice(DOWNLOAD_URL))

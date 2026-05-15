@@ -54,7 +54,7 @@ class ProcessConfig(object):
     update: dict = field(default_factory=dict)
 
     # max acceptable delay
-    delay: int = 5000
+    delay: int = 10000
 
 
 def load_configs(
@@ -814,7 +814,7 @@ if __name__ == "__main__":
         "--timeout",
         type=int,
         required=False,
-        default=5000,
+        default=10000,
         help="timeout",
     )
 

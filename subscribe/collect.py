@@ -457,7 +457,7 @@ if __name__ == "__main__":
         "--delay",
         type=int,
         required=False,
-        default=5000,
+        default=10000,
         help="proxies max delay allowed",
     )
 

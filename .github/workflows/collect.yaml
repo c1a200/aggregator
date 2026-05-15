@@ -23,10 +23,11 @@ env:
 
   # the url to the list of airports that you maintain yourself
   # each line include domain, coupon and invitation code, the domain must be included, and the latter two items are optional
-  CUSTOMIZE_LINK: ${{ secrets.CUSTOMIZE_LINK }}
+  # can be a URL or a local file path (e.g. data/customize.txt)
+  CUSTOMIZE_LINK: ${{ secrets.CUSTOMIZE_LINK || 'data/customize.txt' }}
 
   # include special protocols, such as vless hysteria2 and hysteria
-  ENABLE_SPECIAL_PROTOCOLS: ${{ vars.ENABLE_SPECIAL_PROTOCOLS }}
+  ENABLE_SPECIAL_PROTOCOLS: ${{ vars.ENABLE_SPECIAL_PROTOCOLS || 'true' }}
 
 jobs:
   process:
@@ -67,7 +68,7 @@ jobs:
           fi
 
       - name: Collect
-        run: python -u subscribe/collect.py --all --overwrite --skip
+        run: python -u subscribe/collect.py --all --skip
 
       - name: Timestamp
         run: date
