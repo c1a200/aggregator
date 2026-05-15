@@ -1,46 +1,19 @@
 # 自定义机场列表 - 更新于 2026-05-15
 # 格式: 域名@#@#优惠码@#@#邀请码@#@#api前缀
 # 只有域名是必填项，其余可选
+# 注意：只收录注册即送流量/有免费套餐的机场，付费机场不要添加！
 
-# === 免费试用机场 (注册即送流量/试用) ===
+# === 注册即送免费流量的机场 ===
 
-# 飞鸟加速 - 注册免费试用
+# 飞鸟加速 - 注册送试用流量
 https://www.112112789.xyz
 
-# 星辰VPN - 注册免费试用
+# 星辰VPN - 注册送试用
 https://c.xcvpn.me
 
-# 西游云 - 注册免费试用
-https://www.xiyou666.xyz
-
-# 老村长机场 - 注册免费试用
-https://www.laocunzhang.net
-
-# 农夫山泉 - 注册免费试用
+# 农夫山泉 - 注册送试用
 https://qqq.nfsq.us
 
-# 狗狗加速 - 注册免费试用 (Hysteria2协议)
-https://www.dginv.click
-
-# FreeCloud - 注册试用2天
-https://zero.2c.lol@#@#@#@#dQMxrIfm
-
-# NIUNIU / Niu加速
+# Niu加速 - 免费节点
 https://iyun.me
 https://iyun.win
-
-# 咪兔Mitu - 新用户一天试用
-https://bibi.metu.dev@#@#@#@#8McpxX7o
-
-# === 公益/免费机场 ===
-
-# PDJC免费机场
-https://pdv2ray.pdjc.cc
-
-# === 长期稳定源 (有免费套餐或试用) ===
-
-# 白月光 bygcloud
-https://www.sibker.com@#@#@#@#rBQahsOg
-
-# TAG机场 - 有试用
-https://569078.dedicated-afflink.com
