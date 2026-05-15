@@ -1,0 +1,50 @@
+name: Update Customize
+on:
+  # 每天凌晨1点（北京时间9点）自动更新机场列表
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GIST_PAT || github.token }}
+
+      - name: Prepare
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          architecture: "x64"
+          cache: "pip"
+
+      - name: Install
+        run: pip3 install -r requirements.txt
+
+      - name: Collect and Update
+        run: python -u subscribe/update_customize.py
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet data/customize.txt 2>/dev/null; then
+              echo "No changes to customize.txt"
+          else
+              git add data/customize.txt
+              git commit -m "chore: auto-update customize.txt [$(date '+%Y-%m-%d')]"
+              git push
+              echo "Successfully updated customize.txt"
+          fi
+
+      - name: Timestamp
+        run: date
