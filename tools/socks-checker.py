@@ -19,7 +19,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import aiohttp
 import yaml
@@ -296,6 +296,18 @@ def country_name_zh(country_code: str) -> str:
     return COUNTRY_NAME_ZH.get(country_code.upper(), "")
 
 
+MEITUAN_IP_LOCATE_URL = "https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip={ip}"
+CHINA_PROVINCE_SUFFIXES = (
+    "特别行政区",
+    "维吾尔自治区",
+    "壮族自治区",
+    "回族自治区",
+    "自治区",
+    "省",
+    "市",
+)
+
+
 def short_company_name(value: str) -> str:
     if not value:
         return "UNKNOWN"
@@ -347,6 +359,9 @@ class IpLookupResult:
 class IPLibrary:
     name: str = ""
 
+    def __init__(self):
+        self._caches: Dict[str, str] = {}
+
     async def lookup(
         self, session: aiohttp.ClientSession, proxy_info: ProxyInfo, retries: int, timeout: int
     ) -> IpLookupResult:
@@ -357,7 +372,15 @@ class IPLibrary:
 
         return self._verify(data, self.name)
 
-    def build_remark(self, data: Dict, include_asn_name: bool) -> str:
+    async def build_remark(
+        self,
+        session: aiohttp.ClientSession,
+        ip: str,
+        data: Dict,
+        include_asn_name: bool,
+        retries: int,
+        timeout: int,
+    ) -> str:
         raise NotImplementedError
 
     async def _fetch(
@@ -470,11 +493,74 @@ class IPLibrary:
 
         return base
 
+    async def _resolve_country(
+        self,
+        session: aiohttp.ClientSession,
+        ip: str,
+        country_code: str,
+        country: str,
+        retries: int,
+        timeout: int,
+    ) -> str:
+        country_code = (country_code or "").upper()
+        if country_code != "CN" or not ip:
+            return country
+
+        if ip in self._caches:
+            return self._caches[ip]
+
+        province = await self._lookup_province(session, ip, retries, timeout)
+        resolved = f"中国{province}" if province else "中国"
+        self._caches[ip] = resolved
+        return resolved
+
+    async def _lookup_province(self, session: aiohttp.ClientSession, ip: str, retries: int, timeout: int) -> str:
+        url = MEITUAN_IP_LOCATE_URL.format(ip=quote(ip, safe=""))
+        data, _ = await self._make_request(
+            session=session,
+            url=url,
+            retries=max(1, min(retries, 2)),
+            timeout=max(1, min(timeout, 3)),
+        )
+        if not isinstance(data, dict):
+            return ""
+
+        payload = data.get("data")
+        if not isinstance(payload, dict):
+            return ""
+
+        rgeo = payload.get("rgeo")
+        if not isinstance(rgeo, dict):
+            return ""
+
+        country = (rgeo.get("country") or "").strip()
+        if country and country != "中国":
+            return ""
+
+        return self._normalize_province(rgeo.get("province") or "")
+
+    @staticmethod
+    def _normalize_province(province: str) -> str:
+        province = (province or "").strip()
+        for suffix in CHINA_PROVINCE_SUFFIXES:
+            if province.endswith(suffix):
+                return province[: -len(suffix)].strip()
+
+        return province
+
 
 class IPInfoLibrary(IPLibrary):
     name = "ipinfo"
 
-    def build_remark(self, data: Dict, include_asn_name: bool) -> str:
+    async def build_remark(
+        self,
+        session: aiohttp.ClientSession,
+        ip: str,
+        data: Dict,
+        include_asn_name: bool,
+        retries: int,
+        timeout: int,
+    ) -> str:
         country_code = (data.get("country") or "").upper()
         flag = country_flag_emoji(country_code)
 
@@ -498,7 +584,14 @@ class IPInfoLibrary(IPLibrary):
         else:
             label = ""
 
-        country = country_name_zh(country_code) or country_code or "未知"
+        country = await self._resolve_country(
+            session=session,
+            ip=ip,
+            country_code=country_code,
+            country=country_name_zh(country_code) or country_code or "未知",
+            retries=retries,
+            timeout=timeout,
+        )
         base = f"{flag} {country}{label}".strip()
         if include_asn_name and company_name:
             return f"{base} [{company_name}]".strip()
@@ -562,15 +655,33 @@ class IPInfoLibrary(IPLibrary):
 class IPPureLibrary(IPLibrary):
     name = "ippure"
 
-    def build_remark(self, data: Dict, include_asn_name: bool) -> str:
+    async def build_remark(
+        self,
+        session: aiohttp.ClientSession,
+        ip: str,
+        data: Dict,
+        include_asn_name: bool,
+        retries: int,
+        timeout: int,
+    ) -> str:
         residential = data.get("isResidential")
         label = "家宽" if residential is True else ""
 
         country_code = (data.get("countryCode") or "").upper()
-        country = country_name_zh(country_code) or (data.get("country") or "未知")
+        country = await self._resolve_country(
+            session=session,
+            ip=ip,
+            country_code=country_code,
+            country=country_name_zh(country_code) or (data.get("country") or "未知"),
+            retries=retries,
+            timeout=timeout,
+        )
 
         company_name = short_company_name(data.get("asOrganization") or "")
         score = str(data.get("fraudScore")).zfill(3) if "fraudScore" in data else "NUL"
+
+        # broadcast or native
+        categroy = "NUL" if "isBroadcast" not in data else "B" if data.get("isBroadcast") else "N"
 
         return self._format_remark(
             country_code=country_code,
@@ -578,7 +689,7 @@ class IPPureLibrary(IPLibrary):
             label=label,
             include_asn_name=include_asn_name,
             company_name=company_name,
-            detail=score,
+            detail=f"{score}::{categroy}",
         )
 
     async def _fetch(
@@ -591,23 +702,39 @@ class IPPureLibrary(IPLibrary):
 class IP2LocationLibrary(IPLibrary):
     name = "ip2location"
 
-    def build_remark(self, data: Dict, include_asn_name: bool) -> str:
+    async def build_remark(
+        self,
+        session: aiohttp.ClientSession,
+        ip: str,
+        data: Dict,
+        include_asn_name: bool,
+        retries: int,
+        timeout: int,
+    ) -> str:
+        as_info = data.get("as_info") or {}
+
         usage_type = (data.get("usage_type") or "").strip().lower()
-        label = "家宽" if (usage_type.startswith("isp") or usage_type == "mob") else ""
+        as_usage_type = ((as_info.get("as_usage_type") if isinstance(as_info, dict) else "") or "").strip().lower()
+
+        check = lambda usage: usage.startswith("isp") or usage == "mob"
+        label = "家宽" if check(usage_type) and check(as_usage_type) else ""
 
         country_code = (data.get("country_code") or "").upper()
-        country = (
-            country_name_zh(country_code)
+        country = await self._resolve_country(
+            session=session,
+            ip=ip,
+            country_code=country_code,
+            country=country_name_zh(country_code)
             or data.get("country_name")
             or data.get("country", {}).get("name", "")
-            or "未知"
+            or "未知",
+            retries=retries,
+            timeout=timeout,
         )
 
         provider = (data.get("as", "") or data.get("isp", "") or "").strip()
-        if not provider and "as_info" in data:
-            as_info = data.get("as_info", {})
-            if as_info and isinstance(as_info, dict):
-                provider = (as_info.get("as_name", "") or as_info.get("as_domain", "")).strip()
+        if not provider and as_info and isinstance(as_info, dict):
+            provider = (as_info.get("as_name", "") or as_info.get("as_domain", "")).strip()
         if not provider:
             provider = data.get("domain", "").strip() or ""
 
@@ -673,7 +800,15 @@ class IP2LocationLibrary(IPLibrary):
 class IPLarkLibrary(IPLibrary):
     name = "iplark"
 
-    def build_remark(self, data: Dict, include_asn_name: bool) -> str:
+    async def build_remark(
+        self,
+        session: aiohttp.ClientSession,
+        ip: str,
+        data: Dict,
+        include_asn_name: bool,
+        retries: int,
+        timeout: int,
+    ) -> str:
         node_type = (data.get("type") or "").strip().lower()
         if node_type == "isp":
             label = "家宽"
@@ -685,11 +820,20 @@ class IPLarkLibrary(IPLibrary):
             label = ""
 
         country_code = (data.get("country_code") or "").upper()
-        country = country_name_zh(country_code) or (data.get("country_zh") or data.get("country") or "未知")
+        country = await self._resolve_country(
+            session=session,
+            ip=ip,
+            country_code=country_code,
+            country=country_name_zh(country_code) or (data.get("country_zh") or data.get("country") or "未知"),
+            retries=retries,
+            timeout=timeout,
+        )
 
-        # asn = str(data.get("asn") or "").strip()
-        # detail = f"AS{asn}" if asn else "NUL"
-        detail = ""
+        # native if registered country code equals country code else broadcast
+        categroy = "N" if (data.get("registered_country_code") or "").upper() == country_code else "B"
+
+        asn = str(data.get("asn") or "").strip()
+        detail = f"{'AS'+asn if asn else 'NUL'}::{categroy}"
 
         company_name = short_company_name(data.get("organization") or "")
 
@@ -760,7 +904,7 @@ class ProxyChecker:
         解析代理字符串，支持自定义格式
 
         支持的格式占位符:
-        - {protocol}: 协议类型 (socks5/socks4/http等)
+        - {protocol}: 协议类型 (socks5/socks4/http/https等)
         - {username}: 用户名
         - {password}: 密码
         - {host}: 主机地址
@@ -802,10 +946,7 @@ class ProxyChecker:
                 prefix = f"socks5://{prefix}"
 
             result = urlparse(prefix)
-
             protocol = result.scheme or "socks5"
-            if protocol == "https":
-                protocol = "http"
 
             return ProxyInfo(
                 protocol=protocol,
@@ -892,9 +1033,6 @@ class ProxyChecker:
             elif placeholder == "host":
                 host = value
 
-        if protocol == "https":
-            protocol = "http"
-
         return ProxyInfo(
             protocol=protocol,
             username=username,
@@ -910,26 +1048,33 @@ class ProxyChecker:
         Test a single proxy with retries.
         """
         result = TestResult.from_proxy(proxy_info)
-
-        # Build proxy URL
-        if proxy_info.username and proxy_info.password:
-            proxy_url = (
-                f"{proxy_info.protocol}://{proxy_info.username}:{proxy_info.password}"
-                f"@{proxy_info.host}:{proxy_info.port}"
-            )
-        else:
-            proxy_url = f"{proxy_info.protocol}://{proxy_info.host}:{proxy_info.port}"
-
         start_time = datetime.now()
         try:
-            connector = ProxyConnector.from_url(proxy_url)
-            async with aiohttp.ClientSession(connector=connector) as session:
+            protocol = (proxy_info.protocol or "").lower()
+            if protocol in ("http", "https"):
+                proxy_url = self._build_proxy_url(proxy_info, include_auth=False)
+                proxy_auth = self._build_proxy_auth(proxy_info)
+                connector = aiohttp.TCPConnector(ssl=False)
+                session = aiohttp.ClientSession(connector=connector, proxy=proxy_url, proxy_auth=proxy_auth)
+            else:
+                proxy_url = self._build_proxy_url(proxy_info, include_auth=True)
+                connector = ProxyConnector.from_url(proxy_url)
+                session = aiohttp.ClientSession(connector=connector)
+
+            async with session:
                 lookup = await self.ip_library.lookup(session, proxy_info, retries, self.timeout)
                 if not lookup.ip or not lookup.data:
                     result.error = lookup.error or f"Failed to get IP info from {self.ip_library.name}"
                     return result
 
-                remark = self.ip_library.build_remark(lookup.data, self.include_asn_name)
+                remark = await self.ip_library.build_remark(
+                    session=session,
+                    ip=lookup.ip,
+                    data=lookup.data,
+                    include_asn_name=self.include_asn_name,
+                    retries=retries,
+                    timeout=self.timeout,
+                )
                 result.remark = remark
                 result.ip = lookup.ip
                 result.status = "success"
@@ -955,18 +1100,37 @@ class ProxyChecker:
             return f"{base}#{remark}"
         return base
 
+    def _build_proxy_url(self, proxy_info: ProxyInfo, include_auth: bool) -> str:
+        auth = ""
+        if include_auth and (proxy_info.username or proxy_info.password):
+            username = quote(proxy_info.username or "", safe="")
+            password = quote(proxy_info.password or "", safe="")
+            auth = f"{username}:{password}@"
+
+        return f"{proxy_info.protocol}://{auth}{proxy_info.host}:{proxy_info.port}"
+
+    def _build_proxy_auth(self, proxy_info: ProxyInfo) -> Optional[aiohttp.BasicAuth]:
+        if not (proxy_info.username or proxy_info.password):
+            return None
+
+        return aiohttp.BasicAuth(proxy_info.username or "", proxy_info.password or "")
+
     def _yaml_quote(self, value: str) -> str:
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
 
     def _format_yaml_line(self, result: TestResult) -> str:
         name = result.remark or result.host
+        protocol = (result.protocol or "").lower()
+        clash_type = "http" if protocol == "https" else protocol
         parts = [
             f"name: {self._yaml_quote(name)}",
             f"server: {self._yaml_quote(result.host)}",
             f"port: {result.port}",
-            f"type: {self._yaml_quote(result.protocol)}",
+            f"type: {self._yaml_quote(clash_type)}",
         ]
+        if protocol == "https":
+            parts.append("tls: true")
         if result.username:
             parts.append(f"username: {self._yaml_quote(result.username)}")
         if result.password:
@@ -1250,8 +1414,8 @@ def read_proxies(filepath: str) -> List[str]:
                     return None
 
             protocol = str(entry.get("type") or "socks5").strip().lower()
-            if protocol == "https":
-                protocol = "http"
+            if protocol == "http" and entry.get("tls") is True:
+                protocol = "https"
             elif protocol == "socks":
                 protocol = "socks5"
 
@@ -1375,7 +1539,7 @@ async def main():
   %(prog)s -f proxies.txt --input-format "socks5://{host}:{port}:{username}:{password}"
 
 支持的格式占位符:
-  {protocol}  - 协议类型 (socks5/socks4/http等)
+  {protocol}  - 协议类型 (socks5/socks4/http/https等)
   {username}  - 用户名
   {password}  - 密码
   {host}      - 主机地址/IP
