@@ -160,14 +160,22 @@ def assign(
 
             overwrite = True
 
-    # 加载自定义机场列表
+    # 加载自定义机场列表（始终加载本地 data/customize.txt + 额外的 CUSTOMIZE_LINK）
     customize_link = utils.trim(kwargs.get("customize_link", ""))
+
+    # 始终尝试加载本地 customize.txt 作为基础源
+    local_customize = os.path.join(DATA_BASE, "customize.txt")
+    if local_customize != fullpath and os.path.exists(local_customize) and os.path.isfile(local_customize):
+        with open(local_customize, "r", encoding="UTF8") as f:
+            domains.update(parse_domains(content=str(f.read())))
+
+    # 额外加载 CUSTOMIZE_LINK（如果与本地文件不同）
     if customize_link:
         if isurl(customize_link):
             domains.update(parse_domains(content=utils.http_get(url=customize_link)))
         else:
             local_file = os.path.join(DATA_BASE, customize_link)
-            if local_file != fullpath and os.path.exists(local_file) and os.path.isfile(local_file):
+            if local_file != fullpath and local_file != local_customize and os.path.exists(local_file) and os.path.isfile(local_file):
                 with open(local_file, "r", encoding="UTF8") as f:
                     domains.update(parse_domains(content=str(f.read())))
 
