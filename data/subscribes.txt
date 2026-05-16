@@ -1,0 +1,23 @@
+# 公开免费订阅源 - 每日自动更新的 GitHub 节点仓库
+# collect.py 会自动加载这些链接作为已有订阅
+
+# mfuu/v2ray - 每日更新，~80节点
+https://raw.githubusercontent.com/mfuu/v2ray/master/v2ray
+
+# peasoft/NoMoreWalls - 每日更新，~200节点
+https://raw.githubusercontent.com/peasoft/NoMoreWalls/master/list_raw.txt
+
+# mahdibland/V2RayAggregator - 聚合大量节点
+https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge_base64.txt
+
+# ermaozi/get_subscribe - 每日更新，~25节点
+https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt
+
+# freefq/free - 定期更新，~15节点
+https://raw.githubusercontent.com/freefq/free/master/v2
+
+# wrfree/free - 定期更新，~50节点
+https://raw.githubusercontent.com/wrfree/free/main/v2
+
+# Pawdroid/Free-servers - 6小时更新，~20节点
+https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub
