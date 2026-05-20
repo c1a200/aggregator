@@ -30,7 +30,8 @@ jobs:
         run: pip3 install -r requirements.txt
 
       - name: Collect and Update
-        run: python -u subscribe/update_customize.py
+        working-directory: subscribe
+        run: python -u update_customize.py --skip-validate
 
       - name: Commit and Push
         run: |

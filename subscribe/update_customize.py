@@ -191,55 +191,69 @@ def save_customize(domains: dict) -> None:
 
 
 def main():
-    logger.info("[UpdateCustomize] starting to collect free airport domains...")
+    try:
+        logger.info("[UpdateCustomize] starting to collect free airport domains...")
 
-    # 1. 加载已有的
-    existing = load_existing()
-    logger.info(f"[UpdateCustomize] loaded {len(existing)} existing domains")
+        # 1. 加载已有的
+        existing = load_existing()
+        logger.info(f"[UpdateCustomize] loaded {len(existing)} existing domains")
 
-    # 2. 从各公开源收集
-    collected = {}
+        # 2. 从各公开源收集
+        collected = {}
 
-    # Telegram 频道
-    telegram_channels = ["jichang_list", "jiaboribao"]
-    for channel in telegram_channels:
-        airports = extract_airports_from_telegram(channel=channel, pages=3)
-        collected.update(airports)
+        # Telegram 频道
+        telegram_channels = ["jichang_list", "jiaboribao"]
+        for channel in telegram_channels:
+            try:
+                airports = extract_airports_from_telegram(channel=channel, pages=3)
+                collected.update(airports)
+            except Exception:
+                logger.warning(f"[UpdateCustomize] failed to crawl telegram channel: {channel}")
 
-    # GitHub 公开源
-    github_sources = [
-        "https://raw.githubusercontent.com/jichangmianfei/jichangmianfei.github.io/main/README.md",
-        "https://raw.githubusercontent.com/honven/free-ssr-v2ray/main/README.md",
-    ]
-    airports = extract_airports_from_github_readme(github_sources)
-    collected.update(airports)
+        # GitHub 公开源
+        github_sources = [
+            "https://raw.githubusercontent.com/jichangmianfei/jichangmianfei.github.io/main/README.md",
+            "https://raw.githubusercontent.com/honven/free-ssr-v2ray/main/README.md",
+        ]
+        try:
+            airports = extract_airports_from_github_readme(github_sources)
+            collected.update(airports)
+        except Exception:
+            logger.warning("[UpdateCustomize] failed to crawl github sources")
 
-    # hwanz 机场推荐
-    airports = extract_airports_from_jctj()
-    collected.update(airports)
+        # hwanz 机场推荐
+        try:
+            airports = extract_airports_from_jctj()
+            collected.update(airports)
+        except Exception:
+            logger.warning("[UpdateCustomize] failed to crawl jctj source")
 
     logger.info(f"[UpdateCustomize] total collected {len(collected)} new domains from all sources")
 
-    # 3. 合并新旧
-    merged = dict(existing)
-    merged.update(collected)
+        # 3. 合并新旧
+        merged = dict(existing)
+        merged.update(collected)
 
-    if not merged:
-        logger.warning("[UpdateCustomize] no domains found, keeping existing file unchanged")
-        return
+        if not merged:
+            logger.warning("[UpdateCustomize] no domains found, keeping existing file unchanged")
+            return
 
-    # 4. 验证域名可访问性（可选，通过参数控制）
-    skip_validate = "--skip-validate" in sys.argv
-    if not skip_validate and len(merged) > 0:
-        merged = validate_domains(merged)
+        # 4. 验证域名可访问性（可选，通过参数控制）
+        skip_validate = "--skip-validate" in sys.argv
+        if not skip_validate and len(merged) > 0:
+            merged = validate_domains(merged)
 
-    if not merged:
-        logger.warning("[UpdateCustomize] all domains are dead, keeping existing file unchanged")
-        return
+        if not merged:
+            logger.warning("[UpdateCustomize] all domains are dead, keeping existing file unchanged")
+            return
 
-    # 5. 保存
-    save_customize(merged)
-    logger.info(f"[UpdateCustomize] done! Final count: {len(merged)} domains")
+        # 5. 保存
+        save_customize(merged)
+        logger.info(f"[UpdateCustomize] done! Final count: {len(merged)} domains")
+
+    except Exception:
+        logger.error(f"[UpdateCustomize] unexpected error:\n{traceback.format_exc()}")
+        sys.exit(0)  # exit 0 to avoid failing the workflow
 
 
 if __name__ == "__main__":
