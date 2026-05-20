@@ -1,5 +1,10 @@
 name: Process
 on:
+  # 在 Collect 完成后自动触发
+  workflow_run:
+    workflows: ["Collect"]
+    types:
+      - completed
   schedule:
     - cron: "05 03 * * *"
     - cron: "05 11 * * *"
@@ -33,6 +38,8 @@ env:
 jobs:
   process:
     runs-on: ubuntu-latest
+    # 当通过 workflow_run 触发时，只在 Collect 成功后才运行
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout
