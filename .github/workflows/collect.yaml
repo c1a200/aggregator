@@ -32,6 +32,7 @@ env:
 jobs:
   process:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
@@ -68,7 +69,7 @@ jobs:
           fi
 
       - name: Collect
-        run: python -u subscribe/collect.py --all --overwrite --skip
+        run: python -u subscribe/collect.py --all --overwrite -d 10000
 
       - name: Timestamp
         run: date
