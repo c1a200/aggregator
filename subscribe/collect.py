@@ -284,7 +284,7 @@ def aggregate(args: argparse.Namespace) -> None:
 
         time.sleep(random.randint(3, 6))
         params = [
-            [p, clash.EXTERNAL_CONTROLLER, 5000, args.url, args.delay, False] for p in proxies if isinstance(p, dict)
+            [p, clash.EXTERNAL_CONTROLLER, args.delay, args.url, args.delay, False] for p in proxies if isinstance(p, dict)
         ]
 
         masks = utils.multi_thread_run(
